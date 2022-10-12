@@ -1,0 +1,118 @@
+---
+title: "TimeSeriesAnalysis"
+output: html_document
+date: "2022-09-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(corrplot)
+library(dplyr)
+library(tidyquant)
+library(car)
+library(forecast)
+library(TTR)
+library(lubridate)
+library(xts)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+
+tickers = "SPY" # Market and a risk free asset 
+start_date = as.Date('2022-01-06')
+end_date = as.Date('2022-09-12')
+
+prices <- tickers %>% 
+  tq_get(get = "stock.price", from = start_date, to = end_date) %>% 
+  select(date, close) %>%
+  mutate(date = as.Date(date))
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r timeSeries, echo=FALSE}
+prices_ts = ts(prices$close, freq = 5)
+plot(decompose(prices_ts))
+```
+
+```{r}
+plot(acf(prices_ts, plot= F), main = '')
+title('Auto-Correlation Function Plot')
+```
+
+- Gradual Decline in the ACF plot, is indicative of a AR(1) process, or Auto-Regressive Model with a 1 value lag. 
+
+
+# 1st order differncing 
+```{r}
+prices_lag = diff(prices_ts, 1)
+
+plot(acf(prices_lag, plot= F), main = '')
+title('Auto-Correlation Function Plot')
+plot(decompose(prices_lag))
+
+```
+
+- Now it seems that are entries in the time series are serially correlated. Keep in mind, we only took a 1-day lag.
+
+### Estimating the trend Using both Parametric and Non-Parametric Methods 
+
+```{r}
+library(mgcv)
+
+x_ts = prices$close
+time_points = c(1:length(x_ts))
+time_points = c(time_points - min(time_points))/ max(time_points)
+
+# moving average: 
+ma_fit = ksmooth(time_points, x_ts, kernel = 'box')
+jpy_ma = ts(ma_fit$y, freq = 1)
+ma_resid = ts(x_ts - jpy_ma, freq = 1)
+
+# Parametric Quadratic Polynomial: 
+lm_fit = lm(x_ts~time_points+time_points^2)
+jpy_lm = ts(fitted(lm_fit), freq = 1 )
+lm_resid = ts(x_ts - fitted(lm_fit), freq = 1)
+
+# Local Polynomial (Non-Parametric)
+loc_fit = loess(x_ts ~ time_points)
+jpy_local = ts(fitted(loc_fit),  freq = 1)
+local_resid = ts(x_ts - fitted(loc_fit),  freq = 1)
+
+# Splines Smoothing (Non-Parametric)
+spline_fit = gam(x_ts~ s(time_points))
+jpy_spline = ts(fitted(spline_fit),  freq = 1)
+spline_resid = ts(x_ts - fitted(spline_fit),  freq = 1)
+
+# Overlay the og. time series with the estimated values 
+ts.plot(x_ts, main= 'SPY (Fitted Values)')
+lines(jpy_ma, lwd = 1, col = 'red') # MA
+lines(jpy_lm, lwd = 1, col = 'green') # Parametric
+lines(jpy_local, lwd = 1, col = 'blue') # Local polynomial
+lines(jpy_spline, lwd = 1, col = 'purple') # Spline fit
+legend('top', fill = c('red', 'green', 'blue', 'purple'),
+       legend = c('Moving Avg', 'Parametric Quadratic', 'Local polynomial','Spline'), horiz = T, cex = .7)
+
+# Plot of the residuals 
+ ts.plot(ma_resid, col = 'red', main= 'SPY (Residuals)', ylim =c( min(lm_resid), max(lm_resid)))
+lines(lm_resid, lwd = 1, col = 'green') # Parametric
+lines(local_resid, lwd = 1, col = 'blue') # Local polynomial
+lines(spline_resid, lwd = 1, col = 'purple') # Spline fit
+abline(0, 0, col = 'black')
+legend('top', fill = c('red', 'green', 'blue', 'purple'),
+       legend = c('Moving Avg', 'Parametric Quadratic', 'Local polynomial','Spline'), horiz = T, cex = .7, bty = 'n')
+
+```
+
+
+

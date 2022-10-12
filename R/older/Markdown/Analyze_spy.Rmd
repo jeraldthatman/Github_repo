@@ -1,0 +1,72 @@
+---
+title: "SPY analysis"
+author: "Jerald Achaibar"
+date: "7/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(quantmod)
+library(highcharter)
+library(dplyr)
+library(viridisLite)
+library(forecast)
+library(treemap)
+library(flexdashboard)
+library(TTR)
+
+
+thm <- 
+  hc_theme(
+    colors = c("#1a6ecc", "#434348", "#90ed7d"),
+    chart = list(
+      backgroundColor = "transparent",
+      style = list(fontFamily = "Source Sans Pro")
+    ),
+    xAxis = list(
+      gridLineWidth = 1
+    )
+  )
+
+
+```
+
+## View SPY
+```{r spy}
+
+
+SPY %>% 
+  hchart() %>%
+  hc_add_series( SMA(SPY$SPY.Close,60))
+```
+
+
+
+
+```{r}
+getSymbols("SPY")
+#average weekly return 
+
+
+
+weeklyReturn(SPY) %>% hchart() %>%
+  hc_add_series(SMA(weeklyReturn(SPY))) 
+
+```
+
+
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+x = forecast(SPY$SPY.Close["2021"])
+SPY %>% 
+  hchart() 
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -1,0 +1,117 @@
+---
+title: "VariableSearch"
+output: html_document
+date: '2022-07-09'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+library(car)
+library(dplyr)
+library(tidyquant)
+library(quantmod)
+library(lubridate)
+library(xts)
+library(ggplot2)
+library(forecast)
+```
+
+# Time Series Assumptions:
+
+1.  Stationary: Properties of the time series don't depend on the time when it was captured. **Specifically, the mean, variance and autocorrelation structure do not change over time.**
+    1.  If a series is not stationary, we can transform it to be stationary. Using one of the following:
+
+        1.  Used differenced data
+
+        2.  Fit a curve to the data then model the residuals from the fit.
+
+        3.  Log or Square root transform when non constant variance.
+2.  Univariate **ARIMA works on a single variable. Auto-regression is all about regression with the past values.**
+
+# Load in SPY data 
+
+```{r}
+
+tickers = c("SPY", "TLT") # Market and a risk free asset 
+
+prices <- tickers %>% 
+  tq_get(get = "stock.price", from = as.Date('2018-01-01'), to = as.Date('2022-07-09')) %>% 
+  select(date,ticker = symbol, close) %>%
+  mutate(date = as.Date(date)) 
+
+price_monthly_ret = prices %>% group_by(ticker) %>%
+  tq_transmute( select = close, mutate_fun= periodReturn, period = 'daily', colname = 'monthly_return')
+
+```
+
+# Closing Price
+
+```{r pressure, echo=FALSE}
+ prices %>%
+  filter(ticker=='SPY') %>%
+  ggplot(aes(x = date, y = close)) +
+    geom_line() +
+    labs(title = "SPY Line Chart", y = "Closing Price", x = "") + 
+    theme_tq()
+```
+
+# Returns 
+```{r}
+spy_ret = price_monthly_ret %>% filter(ticker == 'SPY')
+spy_ret %>%
+  ggplot(aes(x = date , y = daily.returns)) + geom_line()
+
+mean(spy_ret$monthly.returns) # Mean approx 0
+sd(spy_ret$monthly.returns)^2 # Variance approx 0 
+
+spy_timeSeries = xts(spy_ret[,-c(1,2)], order.by= as.Date(spy_ret$date))
+
+par(mfcol = c(2,1))
+acf(spy_timeSeries, lag.max = 10, main = '')
+pacf(spy_timeSeries, lag.max = 10, main = '')
+```
+
+```{r}
+fitARIMA <- arima(spy_timeSeries, order=c(0,0,0),seasonal = c(1,1,1),method="ML")
+futurVal <- forecast(fitARIMA,h=3, level=.95)
+summary(fitARIMA)
+plot(futurVal)
+
+```
+
+```{r}
+lag(spy_ret, 1)
+Cumula
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
